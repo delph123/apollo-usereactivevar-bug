@@ -59,10 +59,15 @@ function useFixedReactiveVar<T>(rv: ReactiveVar<T>): T {
   const [, setValue] = useState(value);
 
   useEffect(() => {
-    if (rv() !== value) {
-      setValue(rv());
-      // return; // breaks
-    }
+    // Uncomments this code to break
+
+    // const probablySameValue  = rv();
+    // if (probablySameValue  !== value) {
+    //   setValue(probablySameValue);
+    //   return; // breaks because this effect is called once
+    // }
+
+    setValue(rv());
 
     return rv.onNextChange(function onNext(v: T) {
       console.log('fixed');
@@ -77,14 +82,19 @@ function useFixedReactiveVar<T>(rv: ReactiveVar<T>): T {
 function useAlternativeReactiveVar<T>(rv: ReactiveVar<T>): T {
   const value = rv();
 
+  // Let's go full abstract, this should save a few setCount calls
+  // while preserving number of rendering
   const [count, setCount] = useState(0);
 
   useEffect(() => {
     if (rv() !== value) {
+      // cause a re-render
       setCount((c) => c + 1);
+      // this time it is ok
       return;
     }
 
+    // otherwise register for next change
     return rv.onNextChange(() => {
       console.log('alternative');
       setCount((c) => c + 1);
