@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { makeVar, ReactiveVar, useReactiveVar } from '@apollo/client';
 import './App.css';
 
-const variable = makeVar(0);
-const variable2 = makeVar(0);
+const variable = makeVar(-2);
+const variable2 = makeVar(-2);
+const variable3 = makeVar(-2);
 
 function demo(rv: ReactiveVar<number>) {
   rv(rv() + 1);
@@ -15,20 +16,39 @@ function demo(rv: ReactiveVar<number>) {
   }, 1000);
 }
 
-function App() {
-  const count = useReactiveVar(variable);
-  const count2 = useFixedReactiveVar(variable2);
+const Counter = React.memo(function Counter({ rv, useRv, name }) {
+  const count = useRv(rv);
 
+  if (rv() < 0) {
+    // This checks the case of value in effect != value in initial state
+    rv(rv() + 1);
+  }
+
+  return (
+    <button onClick={() => demo(rv)}>
+      {name} count is {count}
+    </button>
+  );
+});
+
+function App() {
   return (
     <div className="App">
       <h3>Example of untracking reactive variable :-(</h3>
       <div className="card">
-        <button onClick={() => demo(variable)}>Broken count is {count}</button>{' '}
-        <button onClick={() => demo(variable2)}>Fixed count is {count2}</button>
-        <p>
-          Click on a button. And after one second, count should return to 0.
-        </p>
+        <Counter rv={variable} useRv={useReactiveVar} name="Broken" />{' '}
+        <Counter rv={variable2} useRv={useFixedReactiveVar} name="Fixed" />{' '}
+        <Counter
+          rv={variable3}
+          useRv={useAlternativeReactiveVar}
+          name="Alternative"
+        />
       </div>
+      <p>
+        Click on a button. Counter is increased. After one second, count
+        decrease back to previous value. You can also try to click multiple
+        times!
+      </p>
     </div>
   );
 }
@@ -39,13 +59,37 @@ function useFixedReactiveVar<T>(rv: ReactiveVar<T>): T {
   const [, setValue] = useState(value);
 
   useEffect(() => {
-    setValue(rv());
+    if (rv() !== value) {
+      setValue(rv());
+      // return; // breaks
+    }
 
     return rv.onNextChange(function onNext(v: T) {
+      console.log('fixed');
       setValue(v);
       rv.onNextChange(onNext);
     });
   }, [rv]);
+
+  return value;
+}
+
+function useAlternativeReactiveVar<T>(rv: ReactiveVar<T>): T {
+  const value = rv();
+
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (rv() !== value) {
+      setCount((c) => c + 1);
+      return;
+    }
+
+    return rv.onNextChange(() => {
+      console.log('alternative');
+      setCount((c) => c + 1);
+    });
+  }, [count]);
 
   return value;
 }
