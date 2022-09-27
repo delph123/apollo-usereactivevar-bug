@@ -36,23 +36,16 @@ function App() {
 function useFixedReactiveVar<T>(rv: ReactiveVar<T>): T {
   const value = rv();
 
-  const [state, setState] = useState(value);
-
-  // Compare value of reactive variable with state, since
-  // they could be different due to react batching.
-  // In case they are not aligned, we need to notify react state.
-  if (value !== state) {
-    setState(value);
-  }
+  const [, setValue] = useState(value);
 
   useEffect(() => {
-    var probablySameValue = rv();
-    if (value !== probablySameValue) {
-      setState(probablySameValue);
-    } else {
-      rv.onNextChange(setState);
-    }
-  }, [value]);
+    setValue(rv());
+
+    return rv.onNextChange(function onNext(v: T) {
+      setValue(v);
+      rv.onNextChange(onNext);
+    });
+  }, [rv]);
 
   return value;
 }
